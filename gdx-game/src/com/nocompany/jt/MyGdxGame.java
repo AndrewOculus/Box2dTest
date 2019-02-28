@@ -27,7 +27,6 @@ public class MyGdxGame implements ApplicationListener
 		physicsWorld = new PhysicsWorld(camera);
 		
 		GameObject.Builder builder = new GameObject.Builder(physicsWorld);
-		
 	
 		box = builder.setPos(new Vector2(-10,0))
 			.setSize(new Vector2(30,0.5f))
@@ -43,16 +42,18 @@ public class MyGdxGame implements ApplicationListener
 		hero.addAction(new Action(){
 			
 			private Vector2 imp = new Vector2(0,0);
+			private Vector3 camPos = new Vector3();
 			
 			public void act(float dt, GameObject self){
 				imp.set(self.body.getLinearVelocity());
 				imp.x = Gdx.input.getDeltaX()*5;
-				//self.body.applyLinearImpulse(imp,self.body.getPosition(),true);
 				self.body.setLinearVelocity(imp);
+				camPos.x = self.body.getPosition().x;
+				camPos.y = self.body.getPosition().y;
+				camera.position.set(camera.position.lerp(camPos,0.05f));
+				camera.update();
 			}
 		});
-			
-		Log.d("custom","22");
 		
 		sr = new ShapeRenderer();
 	}
@@ -121,7 +122,7 @@ class PhysicsWorld implements Disposable
 		world.step(dt,2,6);
 	}
 	public void render(ShapeRenderer sr){
-		box2ddr.render(world,camera.projection);
+		box2ddr.render(world,camera.combined);
 	}
 	public Body istantiate(Vector2 pos, Vector2 size, BodyDef.BodyType type, ShapeType shType, MassData massData){
 		BodyDef bodyDef = new BodyDef();
