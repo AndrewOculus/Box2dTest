@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.glutils.*;
 import com.badlogic.gdx.utils.*;
 import java.util.*;
 import com.badlogic.gdx.physics.box2d.joints.*;
+import android.util.*;
 
 public class MyGdxGame implements ApplicationListener
 {
@@ -16,8 +17,7 @@ public class MyGdxGame implements ApplicationListener
 	OrthographicCamera camera;
 	ShapeRenderer sr;
 	GameObject box;
-	GameObject hook;
-	float ang=0;
+	GameObject hero;
 
 	@Override
 	public void create()
@@ -28,32 +28,31 @@ public class MyGdxGame implements ApplicationListener
 		
 		GameObject.Builder builder = new GameObject.Builder(physicsWorld);
 		
-		builder.setSize(new Vector2(3f,0.5f))
+	
+		box = builder.setPos(new Vector2(-10,0))
+			.setSize(new Vector2(30,0.5f))
 			.setType(BodyDef.BodyType.StaticBody)
+			.build();
+			
+		hero = builder.setPos(new Vector2(0,10))
+			.setSize(new Vector2(1.1f,1.1f))
+			.setType(BodyDef.BodyType.DynamicBody)
+			.setMassData(1,0.1f)
 			.build();
 		
-		box = builder.setPos(new Vector2(0,3.01f))
-			.setSize(new Vector2(3,0.5f))
-			.setType(BodyDef.BodyType.StaticBody)
-			.build();
+		hero.addAction(new Action(){
 			
-		box = builder.setPos(new Vector2(-3.5f,1.5f))
-			.setSize(new Vector2(0.5f,2f))
-			.setType(BodyDef.BodyType.StaticBody)
-			.build();
+			private Vector2 imp = new Vector2(0,0);
 			
-		box = builder.setPos(new Vector2(0,1))
-			.setSize(new Vector2(0.5f,1))
-			.setType(BodyDef.BodyType.DynamicBody)
-			.build();
-				
-		hook = builder.setPos(new Vector2(8,0))
-			.setSize(new Vector2(2f,0.1f))
-			.setType(BodyDef.BodyType.StaticBody)
-			.setShape(ShapeType.circle)
-			.build();
+			public void act(float dt, GameObject self){
+				imp.set(self.body.getLinearVelocity());
+				imp.x = Gdx.input.getDeltaX()*5;
+				//self.body.applyLinearImpulse(imp,self.body.getPosition(),true);
+				self.body.setLinearVelocity(imp);
+			}
+		});
 			
-		box.makeDistanceJoint(hook,box.body.getPosition(),hook.body.getPosition().add(0,2));
+		Log.d("custom","22");
 		
 		sr = new ShapeRenderer();
 	}
@@ -67,21 +66,6 @@ public class MyGdxGame implements ApplicationListener
 		physicsWorld.update(dt);
 		physicsWorld.render(sr);
 		camera.update();
-		if((!Gdx.input.isTouched()))
-		ang+=dt*4;
-		//if(Gdx.input.isTouched()){
-			//box.destroyDistanceJoint();
-			//box.body.setLinearVelocity(100,0);
-			if(Gdx.input.isTouched())
-			hook.body.setTransform(Gdx.input.getX()*camera.zoom-camera.viewportWidth*camera.zoom/2,(Gdx.graphics.getHeight()- Gdx.input.getY())*camera.zoom-camera.viewportHeight*camera.zoom/2,0);
-			else
-			hook.body.setTransform(hook.body.getPosition().x, hook.body.getPosition().y,ang);
-		//}
-		//else
-			//box.makeDistanceJoint(hook);
-		
-	
-			
 	}
 
 	@Override
@@ -119,22 +103,32 @@ class PhysicsWorld implements Disposable
 	private World world = new World(new Vector2(0,-9.81f), false);
 	private Box2DDebugRenderer box2ddr = new Box2DDebugRenderer();
 	private OrthographicCamera camera;
+	private Array<Body> bodies = new Array<Body>();
 	
 	public PhysicsWorld(OrthographicCamera camera){
 		this.camera = camera;
 	}
 	
 	public void update(float dt){
+		world.getBodies(bodies);
+		for(Body body : bodies){
+			Object usrData=body.getUserData();
+			if(usrData instanceof GameObject){
+				((GameObject)usrData).updateActions(dt);
+			}
+		}
+		
 		world.step(dt,2,6);
 	}
 	public void render(ShapeRenderer sr){
 		box2ddr.render(world,camera.projection);
 	}
-	public Body istantiate(Vector2 pos, Vector2 size, BodyDef.BodyType type, ShapeType shType){
+	public Body istantiate(Vector2 pos, Vector2 size, BodyDef.BodyType type, ShapeType shType, MassData massData){
 		BodyDef bodyDef = new BodyDef();
         bodyDef.type = type;
         bodyDef.position.set(pos.x, pos.y);
 		Body body = this.world.createBody(bodyDef);
+		body.setMassData(massData);
 		
 		if(shType == ShapeType.box){
 			PolygonShape shape = new PolygonShape();
@@ -155,7 +149,6 @@ class PhysicsWorld implements Disposable
 			shape.dispose();
 		}
 	
-        
 		return body;
 	}
 	
@@ -185,6 +178,11 @@ class GameObject{
 	
 	public void addAction(Action act){
 		actions.add(act);
+		body.setUserData(this);
+	}
+	
+	public List<Action> getActions(){
+		return actions;
 	}
 	
 	public void updateActions(float dt){
@@ -228,6 +226,7 @@ class GameObject{
 		private Vector2 size = new Vector2(10,10);
 		private BodyDef.BodyType type = BodyDef.BodyType.DynamicBody;
 		private ShapeType shapeType = ShapeType.box;
+		private MassData massData = new MassData();
 		
 		public Builder(PhysicsWorld pw){
 			this.physicsWorld = pw;
@@ -253,10 +252,23 @@ class GameObject{
 			return this;
 		}
 		
+		public Builder setMassData(float mass, float I){
+			this.massData.I=I;
+			this.massData.mass=mass;
+			return this;
+		}
+		
+		public Builder setMassData(float mass, float I, Vector2 center){
+			this.massData.I=I;
+			this.massData.mass=mass;
+			this.massData.center.set(center);
+			return this;
+		}
+		
 		public GameObject build(){
 			gameObject = new GameObject();
 			gameObject.setWorld(physicsWorld.getWorld());
-			gameObject.body = physicsWorld.istantiate(position,size,type,shapeType);
+			gameObject.body = physicsWorld.istantiate(position,size,type,shapeType,massData);
 			return gameObject;
 		}
 	}
