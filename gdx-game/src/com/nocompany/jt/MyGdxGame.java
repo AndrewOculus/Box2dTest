@@ -18,12 +18,13 @@ public class MyGdxGame implements ApplicationListener
 	ShapeRenderer sr;
 	GameObject box;
 	GameObject hero;
-
+	float zoom = 0.02f;
+	
 	@Override
 	public void create()
 	{
 		camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		camera.zoom = 0.02f;
+		camera.zoom = zoom;
 		physicsWorld = new PhysicsWorld(camera);
 		
 		GameObject.Builder builder = new GameObject.Builder(physicsWorld);
@@ -65,7 +66,11 @@ public class MyGdxGame implements ApplicationListener
 	    Gdx.gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
 		float dt = Gdx.graphics.getDeltaTime();
 		physicsWorld.update(dt);
+		sr.setColor(Color.BLACK);
+		sr.setProjectionMatrix(camera.combined);
+		sr.begin(ShapeRenderer.ShapeType.Filled);
 		physicsWorld.render(sr);
+		sr.end();
 		camera.update();
 	}
 
@@ -79,6 +84,8 @@ public class MyGdxGame implements ApplicationListener
 	@Override
 	public void resize(int width, int height)
 	{
+		camera = new OrthographicCamera(width,height);
+		camera.zoom = zoom;
 	}
 
 	@Override
@@ -122,7 +129,14 @@ class PhysicsWorld implements Disposable
 		world.step(dt,2,6);
 	}
 	public void render(ShapeRenderer sr){
-		box2ddr.render(world,camera.combined);
+		//box2ddr.render(world,camera.combined);
+		world.getBodies(bodies);
+		for(Body body : bodies){
+			Object usrData=body.getUserData();
+			if(usrData instanceof GameObject){
+				((GameObject)usrData).draw(sr);
+			}
+		}
 	}
 	public Body istantiate(Vector2 pos, Vector2 size, BodyDef.BodyType type, ShapeType shType, MassData massData){
 		BodyDef bodyDef = new BodyDef();
@@ -172,6 +186,8 @@ class GameObject{
 	public DistanceJoint joint;
 	private World world;
 	private List<Action> actions;
+	private ShapeType shapeType;
+	private Vector2 size;
 	
 	public GameObject(){
 		actions = new ArrayList<Action>();
@@ -184,6 +200,23 @@ class GameObject{
 	
 	public List<Action> getActions(){
 		return actions;
+	}
+	
+	public void draw(ShapeRenderer sr){
+		if(shapeType == ShapeType.box){
+			sr.rect(body.getPosition().x - size.x, body.getPosition().y - size.y, size.x*2, size.y*2, size.x, size.y , body.getAngle()*MathUtils.radDeg);
+		
+		}else{
+			sr.circle(body.getPosition().x, body.getPosition().y, size.x);
+		}
+	}
+	
+	public void setSize(Vector2 size){
+		this.size = size;
+	}
+	
+	public void setShapeType(ShapeType shapeType){
+		this.shapeType = shapeType;
 	}
 	
 	public void updateActions(float dt){
@@ -270,6 +303,9 @@ class GameObject{
 			gameObject = new GameObject();
 			gameObject.setWorld(physicsWorld.getWorld());
 			gameObject.body = physicsWorld.istantiate(position,size,type,shapeType,massData);
+			gameObject.setShapeType(shapeType);
+			gameObject.setSize(size);
+			gameObject.body.setUserData(gameObject);
 			return gameObject;
 		}
 	}
