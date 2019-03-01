@@ -28,10 +28,12 @@ public class MyGdxGame implements ApplicationListener
 		physicsWorld = new PhysicsWorld(camera);
 		
 		GameObject.Builder builder = new GameObject.Builder(physicsWorld);
-	
-		box = builder.setPos(new Vector2(-10,0))
-			.setSize(new Vector2(30,0.5f))
+			
+		for(int i = 0; i<50; i++)
+		builder.setPos(new Vector2(-10+i/2,i*10))
+			.setSize(new Vector2(30-i/2,0.5f))
 			.setType(BodyDef.BodyType.StaticBody)
+			.setAngle(i-10)
 			.build();
 			
 		hero = builder.setPos(new Vector2(0,10))
@@ -138,10 +140,11 @@ class PhysicsWorld implements Disposable
 			}
 		}
 	}
-	public Body istantiate(Vector2 pos, Vector2 size, BodyDef.BodyType type, ShapeType shType, MassData massData){
+	public Body istantiate(Vector2 pos,float angle, Vector2 size, BodyDef.BodyType type, ShapeType shType, MassData massData){
 		BodyDef bodyDef = new BodyDef();
         bodyDef.type = type;
         bodyDef.position.set(pos.x, pos.y);
+		bodyDef.angle = angle*MathUtils.degRad;
 		Body body = this.world.createBody(bodyDef);
 		body.setMassData(massData);
 		
@@ -261,6 +264,7 @@ class GameObject{
 		private BodyDef.BodyType type = BodyDef.BodyType.DynamicBody;
 		private ShapeType shapeType = ShapeType.box;
 		private MassData massData = new MassData();
+		private float angle = 0;
 		
 		public Builder(PhysicsWorld pw){
 			this.physicsWorld = pw;
@@ -268,6 +272,11 @@ class GameObject{
 		
 		public Builder setPos(Vector2 pos){
 			this.position = pos;
+			return this;
+		}
+		
+		public Builder setAngle(float angle){
+			this.angle = angle;
 			return this;
 		}
 		
@@ -302,10 +311,11 @@ class GameObject{
 		public GameObject build(){
 			gameObject = new GameObject();
 			gameObject.setWorld(physicsWorld.getWorld());
-			gameObject.body = physicsWorld.istantiate(position,size,type,shapeType,massData);
+			gameObject.body = physicsWorld.istantiate(position,angle,size,type,shapeType,massData);
 			gameObject.setShapeType(shapeType);
 			gameObject.setSize(size);
 			gameObject.body.setUserData(gameObject);
+		
 			return gameObject;
 		}
 	}
