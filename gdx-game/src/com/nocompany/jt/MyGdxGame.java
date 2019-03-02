@@ -13,12 +13,13 @@ import android.util.*;
 
 public class MyGdxGame implements ApplicationListener
 {
-	PhysicsWorld physicsWorld;
-	OrthographicCamera camera;
-	ShapeRenderer sr;
-	GameObject box;
-	GameObject hero;
-	float zoom = 0.02f;
+	private PhysicsWorld physicsWorld;
+	private OrthographicCamera camera;
+	private ShapeRenderer sr;
+	private GameObject box;
+	private GameObject hero;
+	private GameObject hook;
+	private final float zoom = 0.02f;
 	
 	@Override
 	public void create()
@@ -33,10 +34,44 @@ public class MyGdxGame implements ApplicationListener
 		builder.setPos(new Vector2(-10+i/2,i*10))
 			.setSize(new Vector2(30-i/2,0.5f))
 			.setType(BodyDef.BodyType.StaticBody)
-			.setAngle(i-10)
+			.setAngle(0)
 			.build();
 			
-		hero = builder.setPos(new Vector2(0,10))
+		box = builder.setPos(new Vector2(-40,0))
+			.setSize(new Vector2(3,0.5f))
+			.setType(BodyDef.BodyType.StaticBody)
+			.setAngle(0)
+			.build();
+			
+		hook = builder.setPos(new Vector2(-45,12))
+			.setSize(new Vector2(1,1))
+			.setType(BodyDef.BodyType.StaticBody)
+			.setAngle(0)
+			.build();
+			
+		box = builder.setPos(new Vector2(-45,5))
+			.setSize(new Vector2(10,0.4f))
+			.setType(BodyDef.BodyType.DynamicBody)
+			.setAngle(0)
+			.build();
+		
+		box.makeDistanceJoint(hook,box.body.getPosition().add(2,0),hook.body.getPosition());
+		box.makeDistanceJoint(hook,box.body.getPosition().add(-2,0),hook.body.getPosition());
+		//box.makeDistanceJoint(hook, new Vector2(-45,12), new Vector2(-45,5));
+		
+		/*
+			
+		box.addAction(new Action(){
+			private float t=0;
+			
+			public void act(float dt,GameObject self){
+				t+=dt;
+				Vector2 pos = self.body.getPosition();
+				self.body.setTransform(pos.x, 100*MathUtils.sinDeg(t*5), 0);
+			}
+		});
+		*/	
+		hero = builder.setPos(new Vector2(-30,15))
 			.setSize(new Vector2(1.1f,1.1f))
 			.setType(BodyDef.BodyType.DynamicBody)
 			.setMassData(1,0.1f)
@@ -54,7 +89,7 @@ public class MyGdxGame implements ApplicationListener
 				camPos.x = self.body.getPosition().x;
 				camPos.y = self.body.getPosition().y;
 				camera.position.set(camera.position.lerp(camPos,0.05f));
-				camera.update();
+				//camera.update();
 			}
 		});
 		
@@ -86,8 +121,8 @@ public class MyGdxGame implements ApplicationListener
 	@Override
 	public void resize(int width, int height)
 	{
-		camera = new OrthographicCamera(width,height);
-		camera.zoom = zoom;
+		//camera = new OrthographicCamera(width,height);
+		//camera.zoom = zoom;
 	}
 
 	@Override
@@ -127,11 +162,10 @@ class PhysicsWorld implements Disposable
 				((GameObject)usrData).updateActions(dt);
 			}
 		}
-		
 		world.step(dt,2,6);
 	}
 	public void render(ShapeRenderer sr){
-		//box2ddr.render(world,camera.combined);
+		box2ddr.render(world,camera.combined);
 		world.getBodies(bodies);
 		for(Body body : bodies){
 			Object usrData=body.getUserData();
@@ -154,7 +188,7 @@ class PhysicsWorld implements Disposable
 			FixtureDef fixtureDef = new FixtureDef();
 			fixtureDef.shape = shape;
 			fixtureDef.density = 1f;
-			Fixture fixture = body.createFixture(fixtureDef);
+			body.createFixture(fixtureDef);
 			shape.dispose();
 		}
        	else{
@@ -163,7 +197,7 @@ class PhysicsWorld implements Disposable
 			FixtureDef fixtureDef = new FixtureDef();
 			fixtureDef.shape = shape;
 			fixtureDef.density = 1f;
-			Fixture fixture = body.createFixture(fixtureDef);
+			body.createFixture(fixtureDef);
 			shape.dispose();
 		}
 	
@@ -186,7 +220,7 @@ class Action{
 class GameObject{
 	
 	public Body body;
-	public DistanceJoint joint;
+	public List<DistanceJoint> joint = new ArrayList<DistanceJoint>();
 	private World world;
 	private List<Action> actions;
 	private ShapeType shapeType;
@@ -207,7 +241,7 @@ class GameObject{
 	
 	public void draw(ShapeRenderer sr){
 		if(shapeType == ShapeType.box){
-			sr.rect(body.getPosition().x - size.x, body.getPosition().y - size.y, size.x*2, size.y*2, size.x, size.y , body.getAngle()*MathUtils.radDeg);
+			sr.rect(body.getPosition().x - size.x*1.01f, body.getPosition().y - size.y*1.01f, size.x*2.02f, size.y*2.02f, size.x, size.y , body.getAngle()*MathUtils.radDeg);
 		
 		}else{
 			sr.circle(body.getPosition().x, body.getPosition().y, size.x);
@@ -237,21 +271,19 @@ class GameObject{
 	}
 	
 	public void makeDistanceJoint(GameObject B, Vector2 p1, Vector2 p2){
-		if(joint!=null)
-			return;
+
 		DistanceJointDef defJoint = new DistanceJointDef ();
 		defJoint.length = 0;
 		defJoint.frequencyHz=10;
 		defJoint.dampingRatio=0;
 		//defJoint.collideConnected=true;
 		defJoint.initialize(this.body, B.body, p1, p2);
-		joint = (DistanceJoint) world.createJoint(defJoint);
+		joint.add((DistanceJoint) world.createJoint(defJoint));
 	}
 	
 	public void destroyDistanceJoint(){
-		if(joint!=null){
-			world.destroyJoint(joint);
-			joint = null;
+		for( DistanceJoint j : joint){
+			world.destroyJoint(j);
 		}
 	}
 	
